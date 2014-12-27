@@ -3,19 +3,21 @@ package com.wonderfulWeather.app.activity;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.*;
 import com.wonderfulWeather.app.R;
 import com.wonderfulWeather.app.service.AutoUpdateService;
-import com.wonderfulWeather.app.util.HttpCallbackListener;
-import com.wonderfulWeather.app.util.HttpUtil;
-import com.wonderfulWeather.app.util.Utility;
+import com.wonderfulWeather.app.util.*;
+
+import java.util.Date;
 
 /**
  * Created by kevin on 2014/12/23.
@@ -32,15 +34,15 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
 
     private TextView weatherDespText;
 
-    private TextView temp1Text;
+    private TextView windText;
 
-    private TextView temp2Text;
+    private TextView pm25Text;
 
-    private TextView currentDateText;
+    private TextView currtemp;
 
     private Button switchCity;
 
-    private Button refreshWeather;
+    private boolean isNeedQuery=false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,34 +53,26 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         cityNameText=(TextView)findViewById(R.id.city_name);
         publishText=(TextView)findViewById(R.id.publish_text);
         weatherDespText=(TextView)findViewById(R.id.weather_desp);
-        temp1Text=(TextView)findViewById(R.id.temp1);
-        temp2Text=(TextView)findViewById(R.id.temp2);
-        currentDateText=(TextView)findViewById(R.id.current_date);
+        windText=(TextView)findViewById(R.id.wind);
+        pm25Text=(TextView)findViewById(R.id.pm25);
+        currtemp = (TextView)findViewById(R.id.currtemp);
         switchCity=(Button)findViewById(R.id.switch_city);
-        refreshWeather=(Button)findViewById(R.id.refresh_weather);
+
         String countyCode=getIntent().getStringExtra("county_code");
         if(!TextUtils.isEmpty(countyCode))
         {
             publishText.setText("同步中...");
             weatherInfoLayout.setVisibility(View.INVISIBLE);
             cityNameText.setVisibility(View.INVISIBLE);
-            queryWeatherCode(countyCode);
+            isNeedQuery=true;
+            queryWeatherInfo(countyCode);
         }
         else
         {
             showWeather();
         }
         switchCity.setOnClickListener(this);
-        refreshWeather.setOnClickListener(this);
-    }
 
-    /**
-     * 查询县级代码所对应的天气代码
-     * */
-    private void queryWeatherCode(String countyCode)
-    {
-        String address="http://www.weather.com.cn/data/list3/city"+countyCode+".xml";
-        queryFromServer(address,"countyCode");
     }
 
     /**
@@ -86,8 +80,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
      * */
     private void queryWeatherInfo(String weatherCode)
     {
-        String address="http://www.weather.com.cn/data/cityinfo/"+weatherCode+".html";
-        queryFromServer(address,"weatherCode");
+        queryFromServer(CommonUtility.getWeatherUrl(weatherCode),"weatherCode");
     }
 
     /**
@@ -95,31 +88,43 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
      * */
     private void queryFromServer(final String address,final String type)
     {
+        LogUtil.d("HTTP",address);
+
         HttpUtil.sendHttpRequest(address, new HttpCallbackListener() {
             @Override
             public void onFinish(String response) {
-                if("countyCode".equals(type))
-                {
-                    if(!TextUtils.isEmpty(response))
-                    {
-                        String[] array=response.split("\\|");
-                        if(array.length==2)
-                        {
-                            String weatherCode=array[1];
-                            queryWeatherInfo(weatherCode);
-                        }
-                    }
-                }
-                else if("weatherCode".equals(type))
+
+                LogUtil.d(type,response);
+
+                if("weatherCode".equals(type))
                 {
                     Utility.handleWeatherResponse(WeatherActivity.this,response);
-
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             showWeather();
                         }
                     });
+                }
+
+                else if("weatherMore".equals(type))
+                {
+                    if(!TextUtils.isEmpty(response) && response.length()>10) {
+                        if (Utility.handleWeatherMoreResponse(WeatherActivity.this, response)) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                   showWeatherMoreDay();
+                                   findViewById(R.id.weather_more_info).setVisibility(View.VISIBLE);
+                                }
+                            });
+                        }
+                    }
+                    else
+                    {
+                       LogUtil.d("Http","No data");
+                       findViewById(R.id.weather_more_info).setVisibility(View.INVISIBLE);
+                    }
                 }
             }
 
@@ -135,18 +140,105 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         });
     }
 
+    private void showWeatherMoreDay()
+    {
+
+        SharedPreferences prefs=PreferenceManager.getDefaultSharedPreferences(this);
+        String cityCode=prefs.getString("weather_code","");
+        if(TextUtils.isEmpty(prefs.getString("cityen_"+cityCode,"'"))){
+            findViewById(R.id.weather_more_info).setVisibility(View.INVISIBLE);
+            return;
+        }
+
+
+        LinearLayout list_layout = (LinearLayout) findViewById(R.id.weather_more_info);
+        list_layout.removeAllViews();
+        LayoutInflater inflater=LayoutInflater.from(this);
+        for(int i=2;i<=6;i++)
+        {
+
+            String [] tempArray=prefs.getString("temp_"+i,"").replace("℃","").split("~");
+            int temp1=Integer.parseInt(tempArray[0]);
+            int temp2 = Integer.parseInt(tempArray[1]);
+            if(temp1>temp2)
+            {
+                int _temp=temp1;
+                temp1=temp2;
+                temp2=_temp;
+            }
+
+            String image_b="d";
+            String imageKey="d00";
+            if(new Date().getHours()>18 || new Date().getHours()<7)
+            {
+               image_b="n";
+            }
+            imageKey="img_" + (i*2-1);
+            String img_num=prefs.getString(imageKey, "");
+            if(img_num.length()==1){
+                imageKey = image_b+"0"+img_num;
+            }
+            else
+            {
+                imageKey = image_b+img_num;
+            }
+
+            LinearLayout list_item=(LinearLayout)inflater.inflate(R.layout.day_weather, null);
+            ImageView img=(ImageView)list_item.findViewById(R.id.weather_small_day_icon);
+            img.setImageResource(Utility.getDrawableResourceId(imageKey));
+            ((TextView)list_item.findViewById(R.id.weather_small_day_temp1)).setText(temp2+"℃");
+            ((TextView)list_item.findViewById(R.id.weather_small_day_temp2)).setText(temp1+"℃");
+
+            TextView days=(TextView)list_item.findViewById(R.id.weather_small_day_text);
+
+            days.setText(Utility.formatDateForWeather(prefs.getString("date_y",""),i-1));
+            list_layout.addView(list_item);
+            if(i<6) {
+                LinearLayout view = new LinearLayout(this);
+                RelativeLayout.LayoutParams para = new RelativeLayout.LayoutParams(1, ViewGroup.LayoutParams.MATCH_PARENT);
+                para.addRule(RelativeLayout.CENTER_HORIZONTAL);
+                view.setBackgroundColor(Color.argb(200, 255, 255, 255));
+                list_layout.addView(view, para);
+            }
+        }
+
+    }
+
     private void showWeather()
     {
         SharedPreferences prefs=PreferenceManager.getDefaultSharedPreferences(this);
+
+        String cityCode=prefs.getString("weather_code","");
         cityNameText.setText(prefs.getString("city_name",""));
-        temp1Text.setText(prefs.getString("temp1",""));
-        temp2Text.setText(prefs.getString("temp2",""));
-        weatherDespText.setText(prefs.getString("weather_desp",""));
-        publishText.setText("今天"+prefs.getString("publish_time","")+"发布");
-        currentDateText.setText(prefs.getString("current_date",""));
+        currtemp.setText(prefs.getString("temp",""));
+
+        int temp1=Integer.parseInt(prefs.getString("temp1","").replace("℃",""));
+        int temp2=Integer.parseInt(prefs.getString("temp2", "").replace("℃", ""));
+        if(temp1>temp2)
+        {
+            int _temp=temp1;
+            temp1=temp2;
+            temp2=_temp;
+        }
+        weatherDespText.setText(prefs.getString("weather_desp", "") + " " + temp1 + "/" + temp2 +"℃");
+        String [] date=prefs.getString("current_date", "").split("-");
+        String [] time=prefs.getString("publish_time", "").split(":");
+        publishText.setText(date[1]+"月"+date[2]+"日 "+time[0]+":"+time[1]);
         weatherInfoLayout.setVisibility(View.VISIBLE);
         cityNameText.setVisibility(View.VISIBLE);
-
+        currtemp.setText(prefs.getString("temp",""));
+        windText.setText(prefs.getString("wind",""));
+        pm25Text.setText(prefs.getString("pm25",""));
+        //更多信息
+        if (TextUtils.isEmpty(prefs.getString("city_en","")) || isNeedQuery)
+        {
+            queryFromServer(CommonUtility.getWeatherUrl2(cityCode), "weatherMore");
+            isNeedQuery=false;
+        }
+        else
+        {
+            showWeatherMoreDay();
+        }
         Intent intent=new Intent(this, AutoUpdateService.class);
         startService(intent);
     }
@@ -157,7 +249,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
     public void onClick(View v) {
         switch (v.getId())
         {
-            case R.id.refresh_weather:
+            /*  case 10001:
                 publishText.setText("同步中...");
                 SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
                 String weatherCode=prefs.getString("weather_code","");
@@ -165,7 +257,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 {
                     queryWeatherInfo(weatherCode);
                 }
-                break;
+                break;*/
             case R.id.switch_city:
                 Intent intent=new Intent(this,ChooseAreaActivity.class);
                 intent.putExtra("from_weather_activity", true);
@@ -173,7 +265,6 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 finish();
                 break;
             default:
-
                 break;
         }
     }

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+
+<LinearLayout  xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical"
+              android:layout_width="0dp"
+              android:layout_weight="1"
+              android:layout_margin="8dp"
+              android:gravity="center_horizontal"
+              android:layout_gravity="top"
+              android:padding="6dp"
+              android:layout_height="match_parent">
+<ImageView android:contentDescription="天气情况" android:layout_width="60dp" android:padding="9dp" android:layout_height="60dp" android:scaleType="fitCenter" android:src="@drawable/d00" android:id="@+id/weather_small_day_icon"/>
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content"  android:textSize="14sp" android:textColor="#ffffff" android:text="20" android:id="@+id/weather_small_day_temp1" />
+<View
+        android:layout_width="1dip"
+        android:layout_height="35dp"
+        android:background="#aaffffff"
+        android:layout_gravity="center_horizontal"
+        />
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="14sp"  android:textColor="#ffffff" android:text="12" android:id="@+id/weather_small_day_temp2"/>
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content"  android:textSize="14sp" android:textColor="#ffffff" android:text="周五" android:id="@+id/weather_small_day_text"/>
+</LinearLayout>

@@ -15,6 +15,7 @@ import com.wonderfulWeather.app.model.City;
 import com.wonderfulWeather.app.model.County;
 import com.wonderfulWeather.app.model.Province;
 import com.wonderfulWeather.app.model.WeatherDB;
+import com.wonderfulWeather.app.util.CommonUtility;
 import com.wonderfulWeather.app.util.HttpCallbackListener;
 import com.wonderfulWeather.app.util.HttpUtil;
 import com.wonderfulWeather.app.util.Utility;
@@ -179,15 +180,22 @@ public class ChooseAreaActivity extends Activity {
      * */
     private void queryFromServer(final String code,final String type)
     {
-        String address;
+        String address="";
 
         if(!TextUtils.isEmpty(code))
         {
-            address="http://www.weather.com.cn/data/list3/city"+code+".xml";
+            if(code.length()==5)
+            {
+                address=CommonUtility.CITY_URL+code;
+            }
+            else if(code.length()==7)
+            {
+                address=CommonUtility.COUNTY_URL+code;
+            }
         }
         else
         {
-            address="http://www.weather.com.cn/data/list3/city.xml";
+            address= CommonUtility.PROVICE_URL;
         }
 
         showProgressDialog();
