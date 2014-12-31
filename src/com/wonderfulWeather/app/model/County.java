@@ -6,9 +6,15 @@ package com.wonderfulWeather.app.model;
  */
 public class County {
     private int id;
-    private String countyName;
-    private String countyCode;
-    private int cityId;
+    private String county;
+    private String code;
+    private String countyEn;
+    private String city;
+    private String cityEn;
+    private String province;
+    private String provinceEn;
+    private boolean isHot;
+    private boolean isLocation;
 
     public int getId()
     {
@@ -20,33 +26,51 @@ public class County {
         this.id=id;
     }
 
-    public String getCountyName()
+    public String getCode()
     {
-        return countyName;
+        return  code;
     }
 
-    public void setCountyName(String countyName)
+    public void setCode(String countyCode)
     {
-        this.countyName=countyName;
+        this.code=countyCode;
     }
 
-    public String getCountyCode()
+    public String getCounty()
     {
-        return  countyCode;
+        return county;
     }
 
-    public void setCountyCode(String countyCode)
+    public void setCounty(String countyName)
     {
-        this.countyCode=countyCode;
+        this.county=countyName;
     }
 
-    public int getCityId()
-    {
-        return cityId;
-    }
+    public void setCountyEn(String countyEn){this.countyEn=countyEn;}
 
-    public void setCityId(int cityId)
-    {
-        this.cityId=cityId;
-    }
+    public String getCountyEn(){return this.countyEn;}
+
+    public String getCity(){return this.city;}
+
+    public void setCity(String city){this.city=city;}
+
+    public String getCityEn(){return this.cityEn;}
+
+    public void setCityEn(String cityEn){this.cityEn=cityEn;}
+
+    public void setProvince(String province){this.province=province;}
+
+    public String getProvince(){return  this.province;}
+
+    public void setProvinceEn(String provinceEn){this.provinceEn=provinceEn;}
+
+    public String getProvinceEn(){return this.provinceEn;}
+
+    public boolean getHot(){return this.isHot;}
+
+    public void setHot(boolean hot){this.isHot=isHot;}
+
+    public boolean getLocation(){return this.isLocation;}
+
+    public void setLocation(boolean location){this.isLocation=location;}
 }

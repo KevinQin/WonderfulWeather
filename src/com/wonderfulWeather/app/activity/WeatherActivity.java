@@ -1,23 +1,33 @@
 package com.wonderfulWeather.app.activity;
 
 import android.app.Activity;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.*;
+import com.baidu.location.BDLocation;
+import com.baidu.location.BDLocationListener;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
 import com.wonderfulWeather.app.R;
+import com.wonderfulWeather.app.WeatherApplication;
+import com.wonderfulWeather.app.model.County;
+import com.wonderfulWeather.app.model.WeatherDB;
 import com.wonderfulWeather.app.service.AutoUpdateService;
 import com.wonderfulWeather.app.util.*;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * Created by kevin on 2014/12/23.
@@ -26,7 +36,13 @@ import java.util.Date;
  */
 public class WeatherActivity extends Activity implements View.OnClickListener {
 
+    private LocationClient mLocationClient = null;
+    private BDLocationListener myListener = new MyLocationListener() ;
+    private com.wonderfulWeather.app.util.LocationListener locationListener=null;
+
     private LinearLayout weatherInfoLayout;
+
+    private LinearLayout weatherMorLayout;
 
     private TextView cityNameText;
 
@@ -44,12 +60,27 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
 
     private boolean isNeedQuery=false;
 
+    Handler handler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            if(msg.what== CommonUtility.NETWORK_ERRPR) {
+               Toast.makeText(WeatherApplication.getContext(),"为了更快更精准的获取天气信息，建议打开WIFI网络",Toast.LENGTH_LONG).show();
+            }
+            super.handleMessage(msg);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.weather_layout);
+
+        //开始定位
+        initLocation();
+
         weatherInfoLayout=(LinearLayout)findViewById(R.id.weather_info_layout);
+        weatherMorLayout=(LinearLayout)findViewById(R.id.weather_more_info);
         cityNameText=(TextView)findViewById(R.id.city_name);
         publishText=(TextView)findViewById(R.id.publish_text);
         weatherDespText=(TextView)findViewById(R.id.weather_desp);
@@ -57,22 +88,71 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         pm25Text=(TextView)findViewById(R.id.pm25);
         currtemp = (TextView)findViewById(R.id.currtemp);
         switchCity=(Button)findViewById(R.id.switch_city);
-
         String countyCode=getIntent().getStringExtra("county_code");
+
         if(!TextUtils.isEmpty(countyCode))
         {
-            publishText.setText("同步中...");
             weatherInfoLayout.setVisibility(View.INVISIBLE);
             cityNameText.setVisibility(View.INVISIBLE);
-            isNeedQuery=true;
-            queryWeatherInfo(countyCode);
+            weatherMorLayout.setVisibility(View.INVISIBLE);
+            publishText.setText("同步中...");
+            isNeedQuery = true;
+           if("000000000".equals(countyCode)) {
+               if(WeatherApplication.getCurrentCounty()!=null)
+               {
+                   queryWeatherInfo(WeatherApplication.getCurrentCounty().getCode());
+               }
+               else
+               {
+                   Intent intent = new Intent(WeatherActivity.this, ChooseAreaActivity.class);
+                   startActivity(intent);
+                   finish();
+               }
+           }else{
+                queryWeatherInfo(countyCode);
+           }
         }
         else
         {
-            showWeather();
+            try {
+                showWeather();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
         switchCity.setOnClickListener(this);
+    }
 
+
+    private void initLocation()
+    {
+            mLocationClient = new LocationClient(getApplicationContext());     //声明LocationClient类
+            mLocationClient.registerLocationListener( myListener );    //注册监听函数
+            LocationClientOption option = new LocationClientOption();
+            option.setLocationMode(LocationClientOption.LocationMode.Battery_Saving);//设置定位模式
+            option.setCoorType("bd09ll");//返回的定位结果是百度经纬度,默认值gcj02
+            option.setScanSpan(30*60*1000);//设置发起定位请求的间隔时间为5000ms
+            option.setIsNeedAddress(true);//返回的定位结果包含地址信息
+            option.setAddrType("all");
+            option.setProdName(WeatherApplication.getContext().getResources().getString(R.string.app_name));
+            option.setNeedDeviceDirect(true);//返回的定位结果包含手机机头的方向
+            mLocationClient.setLocOption(option);
+    }
+
+
+    public void BeginRequestLocation(com.wonderfulWeather.app.util.LocationListener listener)
+    {
+        locationListener=listener;
+        mLocationClient.start();
+        LogUtil.d("location","Start get Location");
+        if (mLocationClient != null && mLocationClient.isStarted()) {
+            int code= mLocationClient.requestLocation();
+            LogUtil.d("location","response code:"+code);
+        }
+        else {
+            locationListener.getLocationError("LocSDK5:locClient is null or not started");
+        }
+        mLocationClient.stop();
     }
 
     /**
@@ -94,36 +174,25 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
             @Override
             public void onFinish(String response) {
 
-                LogUtil.d(type,response);
+                LogUtil.d(type, response);
 
-                if("weatherCode".equals(type))
-                {
-                    Utility.handleWeatherResponse(WeatherActivity.this,response);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            showWeather();
-                        }
-                    });
-                }
-
-                else if("weatherMore".equals(type))
-                {
-                    if(!TextUtils.isEmpty(response) && response.length()>10) {
-                        if (Utility.handleWeatherMoreResponse(WeatherActivity.this, response)) {
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                   showWeatherMoreDay();
-                                   findViewById(R.id.weather_more_info).setVisibility(View.VISIBLE);
-                                }
-                            });
-                        }
+                if ("weatherCode".equals(type)) {
+                    if (Utility.handleWeatherResponse(WeatherActivity.this, response)) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                showWeather();
+                            }
+                        });
                     }
-                    else
-                    {
-                       LogUtil.d("Http","No data");
-                       findViewById(R.id.weather_more_info).setVisibility(View.INVISIBLE);
+                } else if ("weatherMore".equals(type)) {
+                    if (Utility.handleWeatherMoreResponse(WeatherActivity.this, response)) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                showWeatherMoreDay();
+                            }
+                        });
                     }
                 }
             }
@@ -201,6 +270,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 list_layout.addView(view, para);
             }
         }
+        weatherMorLayout.setVisibility(View.VISIBLE);
 
     }
 
@@ -230,7 +300,8 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         windText.setText(prefs.getString("wind",""));
         pm25Text.setText(prefs.getString("pm25",""));
         //更多信息
-        if (TextUtils.isEmpty(prefs.getString("city_en","")) || isNeedQuery)
+        LogUtil.d("weather","isNeedRequery="+isNeedQuery+"|city_en="+prefs.getString("city_en_"+cityCode,""));
+        if (TextUtils.isEmpty(prefs.getString("city_en_"+cityCode,"")) || isNeedQuery)
         {
             queryFromServer(CommonUtility.getWeatherUrl2(cityCode), "weatherMore");
             isNeedQuery=false;
@@ -249,7 +320,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
     public void onClick(View v) {
         switch (v.getId())
         {
-            /*  case 10001:
+           case 10001:
                 publishText.setText("同步中...");
                 SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
                 String weatherCode=prefs.getString("weather_code","");
@@ -257,7 +328,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 {
                     queryWeatherInfo(weatherCode);
                 }
-                break;*/
+                break;
             case R.id.switch_city:
                 Intent intent=new Intent(this,ChooseAreaActivity.class);
                 intent.putExtra("from_weather_activity", true);
@@ -268,4 +339,81 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 break;
         }
     }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        if(hasFocus) {
+            if (WeatherApplication.getCurrentCounty() == null) {
+                BeginRequestLocation(new LocationListener() {
+                    @Override
+                    public void getLocationSuccessed(County c) {
+                        WeatherApplication.setCurrentCounty(c);
+                    }
+
+                    @Override
+                    public void getLocationError(String ErrorCode) {
+
+                    }
+                });
+            }
+        }
+        super.onWindowFocusChanged(hasFocus);
+    }
+
+    public class MyLocationListener implements BDLocationListener {
+        @Override
+        public void onReceiveLocation(BDLocation location) {
+            LogUtil.d("location","No Listener Method");
+            if (location == null) return ;
+            LogUtil.d("location","get Location over,type:"+location.getLocType());
+            String city="",district="";
+
+            //离线定位
+            if(location.getLocType()==BDLocation.TypeOffLineLocationNetworkFail)
+            {
+                mLocationClient.requestOfflineLocation();
+            }
+
+            //离线
+            if (location.getLocType()== BDLocation.TypeOffLineLocation)
+            {
+                city=location.getCity();
+                district=location.getDistrict();
+            }
+
+            //缓存
+            if(location.getLocType()==BDLocation.TypeCacheLocation)
+            {
+                city=location.getCity();
+                district=location.getDistrict();
+            }
+
+            //在线定位
+            if (location.getLocType() == BDLocation.TypeNetWorkLocation){
+
+                city=location.getCity();
+                district=location.getDistrict();
+            }
+            //城市判断并回调
+            if(!TextUtils.isEmpty(city) || !TextUtils.isEmpty(city))
+            {
+                //是否有对应的区县
+                List<County> clist = WeatherDB.getInstance(WeatherApplication.getContext()).QueryCounty(district.substring(0, district.length() - 1));
+                if (clist.size() == 0) { //是否有对应的城市
+                    clist=WeatherDB.getInstance(WeatherApplication.getContext()).QueryCounty(city.substring(0,city.length()-1));
+                }
+
+                if(clist.size()>0) {
+                    locationListener.getLocationSuccessed(clist.get(0));
+                }
+            }
+            else
+            {
+               handler.sendEmptyMessage(CommonUtility.NETWORK_ERRPR);
+            }
+        }
+    }
 }
+
+
+

@@ -3,25 +3,19 @@ package com.wonderfulWeather.app.activity;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
-import android.text.TextUtils;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.view.Window;
 import android.widget.*;
 import com.wonderfulWeather.app.R;
-import com.wonderfulWeather.app.model.City;
+import com.wonderfulWeather.app.adapter.CountyAdapter;
 import com.wonderfulWeather.app.model.County;
-import com.wonderfulWeather.app.model.Province;
 import com.wonderfulWeather.app.model.WeatherDB;
-import com.wonderfulWeather.app.util.CommonUtility;
-import com.wonderfulWeather.app.util.HttpCallbackListener;
-import com.wonderfulWeather.app.util.HttpUtil;
-import com.wonderfulWeather.app.util.Utility;
+import com.wonderfulWeather.app.util.LogUtil;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by kevin on 2014/12/23.
@@ -30,225 +24,97 @@ import java.util.List;
  */
 public class ChooseAreaActivity extends Activity {
 
-    public static final int LEVEL_PROVICE=0;
-    public static final int LEVEL_CITY=1;
-    public static final int LEVEL_COUNTY=2;
-
     private ProgressDialog progressDialog;
-    private TextView titleText;
     private ListView listView;
-    private ArrayAdapter<String> adapter;
-    private WeatherDB weatherDB;
-    private List<String> dataList=new ArrayList<String>();
-
-    private List<Province> provinceList;
-    private List<City> cityList;
+    private CountyAdapter adapter;
     private List<County> countyList;
-
-    private Province selectedProvince;
-    private City selectedCity;
-
-    private int currentLevel;
-
-    private boolean isFromWeatherActivity;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        isFromWeatherActivity=getIntent().getBooleanExtra("from_weather_activity",false);
-
-        SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
-        if(prefs.getBoolean("city_selected",false) && !isFromWeatherActivity)
-        {
-            Intent intent=new Intent(this,WeatherActivity.class);
-            startActivity(intent);
-            finish();
-            return;
-        }
-
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.choose_area);
 
         listView=(ListView)findViewById(R.id.list_view);
-        titleText=(TextView)findViewById(R.id.title_text);
-        adapter=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,dataList);
+        loadHotCities();
 
-        listView.setAdapter(adapter);
-
-        weatherDB=WeatherDB.getInstance(this);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if(currentLevel==LEVEL_PROVICE)
-                {
-                    selectedProvince=provinceList.get(position);
-                    queryCities();
-                }
-                else if(currentLevel==LEVEL_CITY)
-                {
-                    selectedCity=cityList.get(position);
-                    queryCounties();
-                }
-                else if(currentLevel==LEVEL_COUNTY)
-                {
-                    String countyCode=countyList.get(position).getCountyCode();
-                    Intent intent=new Intent(ChooseAreaActivity.this,WeatherActivity.class);
-                    intent.putExtra("county_code",countyCode);
-                    startActivity(intent);
-                    finish();
+            String countyCode = countyList.get(position).getCode();
+            Intent intent = new Intent(ChooseAreaActivity.this, WeatherActivity.class);
+            intent.putExtra("county_code", countyCode);
+            startActivity(intent);
+            finish();
+            }
+        });
+
+        final ImageView ivDeleteText=(ImageView)findViewById(R.id.ivDeleteText);
+        final EditText etSearch = (EditText) findViewById(R.id.etSearch);
+        ivDeleteText.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                etSearch.setText("");
+            }
+        });
+
+        final Button btnCancelSearch=(Button)findViewById(R.id.btnCancelSearch);
+        btnCancelSearch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onBackPressed();
+            }
+        });
+
+        etSearch.addTextChangedListener(new TextWatcher() {
+
+             public void onTextChanged(CharSequence s, int start, int before, int count) {
+                countyList.clear();
+                adapter.notifyDataSetChanged();
+            }
+
+            public void beforeTextChanged(CharSequence s, int start, int count,
+                                          int after) {
+            }
+
+            public void afterTextChanged(Editable s) {
+                if (s.length() == 0) {
+                    ivDeleteText.setVisibility(View.INVISIBLE);
+                    //载入热门城市
+                    loadHotCities();
+                } else {
+                    ivDeleteText.setVisibility(View.VISIBLE);
+                    //查询城市
+                    if(s.length()>=2) {
+                        queryCounties(s.toString());
+                    }
                 }
             }
         });
-        queryProvinces();
     }
 
-    /**
-     * 查询全国所有的省份，优先从数据库查询，如果再去服务器上检索
-     * */
-    private void queryProvinces()
+    private void loadHotCities()
     {
-        provinceList=weatherDB.loadProvince();
-        if(provinceList.size()>0)
-        {
-            dataList.clear();
-            for(Province province:provinceList)
-            {
-                dataList.add(province.getProvinceName());
-            }
-            adapter.notifyDataSetChanged();
-            listView.setSelection(0);
-            titleText.setText("中国");
-            currentLevel=LEVEL_PROVICE;
-        }
-        else
-        {
-            queryFromServer(null, "province");
-        }
-    }
-
-    /**
-     * 查询当前选定省分的所有城市，优先数据库查询，如果没有去服务器检索
-     * */
-    private void queryCities()
-    {
-        cityList=weatherDB.loadCity(selectedProvince.getId());
-        if(cityList.size()>0)
-        {
-            dataList.clear();
-            for(City city:cityList)
-            {
-                dataList.add(city.getCityName());
-            }
-            adapter.notifyDataSetChanged();
-            listView.setSelection(0);
-            titleText.setText(selectedProvince.getProvinceName());
-            currentLevel=LEVEL_CITY;
-        }
-        else
-        {
-            queryFromServer(selectedProvince.getProvinceCode(), "city");
-        }
+        countyList=WeatherDB.getInstance(this).loadHotCounty();
+        adapter=new CountyAdapter(this,R.layout.list_item,countyList);
+        listView.setAdapter(adapter);
+        listView.setSelection(0);
     }
 
     /**
      * 查询当前选定城市的所有区县，优先数据库查询，如果没有去服务器检索
      * */
-    private void queryCounties()
+    private void queryCounties(String keyword)
     {
-        countyList=weatherDB.loadCounty(selectedCity.getId());
-        if(countyList.size()>0)
-        {
-            dataList.clear();
-            for (County county:countyList)
-            {
-                dataList.add(county.getCountyName());
-            }
-            adapter.notifyDataSetChanged();
-            listView.setSelection(0);
-            titleText.setText(selectedCity.getCityName());
-            currentLevel=LEVEL_COUNTY;
-        }
-        else
-        {
-            queryFromServer(selectedCity.getCityCode(),"county");
-        }
-    }
-
-    /**
-     * 根据传入的代号和类型从服务器上加载省市县数据
-     * */
-    private void queryFromServer(final String code,final String type)
-    {
-        String address="";
-
-        if(!TextUtils.isEmpty(code))
-        {
-            if(code.length()==5)
-            {
-                address=CommonUtility.CITY_URL+code;
-            }
-            else if(code.length()==7)
-            {
-                address=CommonUtility.COUNTY_URL+code;
-            }
-        }
-        else
-        {
-            address= CommonUtility.PROVICE_URL;
-        }
-
         showProgressDialog();
-
-        HttpUtil.sendHttpRequest(address, new HttpCallbackListener() {
-            @Override
-            public void onFinish(String response) {
-                boolean result=false;
-                if("province".equals(type))
-                {
-                    result= Utility.handlerProvinceResponse(weatherDB,response);
-                }
-                else if("city".equals(type))
-                {
-                    result = Utility.handlerCityResponse(weatherDB,response,selectedProvince.getId());
-                }
-                else if("county".equals(type))
-                {
-                    result = Utility.handlerCountyResponse(weatherDB,response,selectedCity.getId());
-                }
-
-                if(result)
-                {
-                    //在主线程上执行
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            closeProgressDialog();
-                            if("province".equals(type)){
-                                queryProvinces();
-                            }else if("city".equals(type)){
-                                queryCities();
-                            }else if("county".equals(type)){
-                                queryCounties();
-                            }
-
-                        }
-                    });
-                }
-            }
-
-            @Override
-            public void onError(Exception e) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        closeProgressDialog();
-                        Toast.makeText(ChooseAreaActivity.this,"加载数据失败",Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-        });
+        countyList=WeatherDB.getInstance(this).QueryCounty(keyword);
+        LogUtil.d("database","querty ["+ keyword +"] size:"+countyList.size());
+        adapter=new CountyAdapter(this,R.layout.list_item,countyList);
+        listView.setAdapter(adapter);
+        listView.setSelection(0);
+        closeProgressDialog();
     }
+
 
     private void showProgressDialog()
     {
@@ -274,24 +140,8 @@ public class ChooseAreaActivity extends Activity {
     * */
     @Override
     public void onBackPressed() {
-        if(currentLevel==LEVEL_COUNTY)
-        {
-            queryCities();
-        }
-        else if(currentLevel==LEVEL_CITY)
-        {
-            queryProvinces();
-        }
-        else
-        {
-            if(isFromWeatherActivity)
-            {
-                Intent intent=new Intent(this,WeatherActivity.class);
-                startActivity(intent);
-            }
-            else {
-                finish();
-            }
-        }
+            Intent intent=new Intent(this,WeatherActivity.class);
+            startActivity(intent);
+            finish();
     }
 }

@@ -4,6 +4,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import com.wonderfulWeather.app.db.WeatherOpenHelper;
+import com.wonderfulWeather.app.util.LogUtil;
+import com.wonderfulWeather.app.util.Utility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +25,7 @@ public class WeatherDB {
     /**
      * 数据库版本号
      * */
-    public static final int VERSION=1;
+    public static final int VERSION=2;
 
     /**
      * 单体实例
@@ -53,74 +55,6 @@ public class WeatherDB {
         return weatherDB;
     }
 
-    /**
-     * 将Province实例存储到数据库
-     * */
-    public void saveProvince(Province province)
-    {
-        if(province!=null)
-        {
-            db.execSQL("insert into province (province_name,province_code) values (?,?)",new String[]{province.getProvinceName(),province.getProvinceCode()});
-        }
-    }
-
-    /**
-     * 从数据库中读取全国所有的省份信息
-     * */
-    public List<Province> loadProvince()
-    {
-        List<Province> provinceList=new ArrayList<Province>();
-
-        Cursor cursor=db.rawQuery("select * from province",null);
-        if(cursor.moveToFirst())
-        {
-            do
-            {
-                Province province=new Province();
-                province.setId(cursor.getInt(cursor.getColumnIndex("id")));
-                province.setProvinceName(cursor.getString(cursor.getColumnIndex("province_name")));
-                province.setProvinceCode(cursor.getString(cursor.getColumnIndex("province_code")));
-                provinceList.add(province);
-
-            }while (cursor.moveToNext());
-        }
-        cursor.close();
-        return provinceList;
-    }
-
-    /**
-     * 将城市City实例存储到数据库中
-     * */
-    public void saveCity(City city)
-    {
-        if(city!=null)
-        {
-            db.execSQL("insert into city(city_name,city_code,province_id) values (?,?,?)",new String[]{city.getCityName(),city.getCityCode(),String.valueOf(city.getProvinceId())});
-        }
-    }
-
-    /**
-     * 获取指定省份的所有城市
-     * */
-    public List<City> loadCity(int provinceId)
-    {
-        List<City> cityList=new ArrayList<City>();
-        Cursor cursor=db.rawQuery("select * from city where province_id=?",new String[]{String.valueOf(provinceId)});
-        if(cursor.moveToFirst())
-        {
-            do{
-                City city=new City();
-                city.setId(cursor.getInt(cursor.getColumnIndex("id")));
-                city.setCityName(cursor.getString(cursor.getColumnIndex("city_name")));
-                city.setCityCode(cursor.getString(cursor.getColumnIndex("city_code")));
-                city.setProvinceId(provinceId);
-                cityList.add(city);
-
-            }while (cursor.moveToNext());
-        }
-        cursor.close();
-        return  cityList;
-    }
 
     /**
      * 把县区County实例存储到数据库中
@@ -129,27 +63,76 @@ public class WeatherDB {
     {
         if(county!=null)
         {
-            db.execSQL("insert into county(county_name,county_code,city_id) values (?,?,?)",new String[]{county.getCountyName(),county.getCountyCode(),String.valueOf(county.getCityId())});
+            db.execSQL("insert into county(code,county,countyEn,city,cityEn,province,provinceEn,isHot) values (?,?,?,?,?,?,?,?)",new String[]{
+                    county.getCode(),county.getCounty(),county.getCountyEn(),county.getCity(),county.getCityEn(),
+                    county.getProvince(),county.getProvinceEn(),county.getHot()?"1":"0"
+            });
         }
     }
 
-    /**
-     * 载入指定城市的所有县区
-     * */
-    public List<County> loadCounty(int cityId)
+    public List<County> QueryCounty( String keyWord)
     {
         List<County> countyList=new ArrayList<County>();
 
-        Cursor cursor=db.rawQuery("select * from county where city_id=?",new String[]{String.valueOf(cityId)});
+        keyWord=keyWord.toLowerCase();
+
+        String sql=String.format("select * from county where county like '%1$s%%' or county_en like '%1$s%%' order by ishot desc,id asc",keyWord);
+        Cursor cursor=db.rawQuery(sql,null);
+        LogUtil.d("database",sql);
 
         if(cursor.moveToFirst())
         {
             do{
                 County county=new County();
                 county.setId(cursor.getInt(cursor.getColumnIndex("id")));
-                county.setCountyName(cursor.getString(cursor.getColumnIndex("county_name")));
-                county.setCountyCode(cursor.getString(cursor.getColumnIndex("county_code")));
-                county.setCityId(cursor.getInt(cursor.getColumnIndex("city_id")));
+                county.setCode(cursor.getString(cursor.getColumnIndex("code")));
+                county.setCounty(cursor.getString(cursor.getColumnIndex("county")));
+                county.setCountyEn(cursor.getString(cursor.getColumnIndex("county_en")));
+                county.setCity(cursor.getString(cursor.getColumnIndex("city")));
+                county.setCityEn(cursor.getString(cursor.getColumnIndex("city_en")));
+                county.setProvince(cursor.getString(cursor.getColumnIndex("province")));
+                county.setProvinceEn(cursor.getString(cursor.getColumnIndex("province_en")));
+                county.setHot(cursor.getInt(cursor.getColumnIndex("isHot"))==1);
+                countyList.add(county);
+                boolean isLocation=Utility.IsCurrentLocation(county);
+                county.setLocation(isLocation);
+                if(isLocation) {
+                    LogUtil.d("isLocation", county.getCounty() + ":" + isLocation);
+                }
+            }while (cursor.moveToNext());
+        }
+        cursor.close();
+        return countyList;
+    }
+
+    /**
+     * 载入指定城市的所有县区
+     * */
+    public List<County> loadHotCounty()
+    {
+        List<County> countyList=new ArrayList<County>();
+
+        Cursor cursor=db.rawQuery("select * from county where isHot=?", new String[]{"1"});
+
+
+        if(cursor.moveToFirst())
+        {
+            do{
+                County county=new County();
+                county.setId(cursor.getInt(cursor.getColumnIndex("id")));
+                county.setCode(cursor.getString(cursor.getColumnIndex("code")));
+                county.setCounty(cursor.getString(cursor.getColumnIndex("county")));
+                county.setCountyEn(cursor.getString(cursor.getColumnIndex("county_en")));
+                county.setCity(cursor.getString(cursor.getColumnIndex("city")));
+                county.setCityEn(cursor.getString(cursor.getColumnIndex("city_en")));
+                county.setProvince(cursor.getString(cursor.getColumnIndex("province")));
+                county.setProvinceEn(cursor.getString(cursor.getColumnIndex("province_en")));
+                county.setHot(true);
+                boolean isLocation=Utility.IsCurrentLocation(county);
+                county.setLocation(isLocation);
+                if(isLocation) {
+                    LogUtil.d("isLocation", county.getCounty() + ":" + isLocation);
+                }
                 countyList.add(county);
             }while (cursor.moveToNext());
         }

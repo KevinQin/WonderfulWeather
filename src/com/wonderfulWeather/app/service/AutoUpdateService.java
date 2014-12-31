@@ -9,6 +9,7 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import com.wonderfulWeather.app.receiver.AutoUpdateReceiver;
+import com.wonderfulWeather.app.util.CommonUtility;
 import com.wonderfulWeather.app.util.HttpCallbackListener;
 import com.wonderfulWeather.app.util.HttpUtil;
 import com.wonderfulWeather.app.util.Utility;
@@ -48,11 +49,23 @@ public class AutoUpdateService extends Service {
     {
         SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
         String weatherCode=prefs.getString("weather_code","");
-        String address="http://www.weather.com.cn/data/cityinfo/"+weatherCode+".html";
+        String address= CommonUtility.getWeatherUrl(weatherCode);
         HttpUtil.sendHttpRequest(address, new HttpCallbackListener() {
             @Override
             public void onFinish(String response) {
                 Utility.handleWeatherResponse(AutoUpdateService.this,response);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                e.printStackTrace();
+            }
+        });
+        address = CommonUtility.getWeatherUrl2(weatherCode);
+        HttpUtil.sendHttpRequest(address, new HttpCallbackListener() {
+            @Override
+            public void onFinish(String response) {
+                Utility.handleWeatherMoreResponse(AutoUpdateService.this,response);
             }
 
             @Override

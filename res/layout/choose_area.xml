@@ -1,18 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout  xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="vertical"
               android:layout_width="match_parent"
-              android:layout_height="match_parent">
-    <RelativeLayout android:layout_width="match_parent" android:layout_height="50dp" android:background="#484E61">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:id="@+id/title_text"
-                android:layout_centerInParent="true"
-                android:textColor="#ffffff"
-                android:textSize="24sp"
-                />
+              android:layout_height="match_parent"
+              android:background="@color/white_gray">
+    <RelativeLayout android:id="@+id/top"
+                    android:layout_width="fill_parent"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:background="#e5e5e5"
+                    android:layout_height="40dp">
+
+        <Button android:id="@+id/btnCancelSearch"
+                android:layout_width="45dp"
+                android:layout_height="25dp"
+                android:gravity="center"
+                android:layout_centerVertical="true"
+                android:layout_alignParentRight="true"
+                android:textSize="14sp"
+                android:padding="2dp"
+                android:textColor="@color/white"
+                android:background="@drawable/button_search"
+                android:text="取消"/>
+
+        <RelativeLayout android:id="@+id/rlSearchFrameDelete"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:layout_toLeftOf="@id/btnCancelSearch">
+
+            <EditText android:id="@+id/etSearch"
+                      android:layout_width="fill_parent"
+                      android:layout_height="wrap_content"
+                      android:singleLine="true"
+                      android:background="@drawable/search_box"
+                      android:layout_marginRight="10dp"
+                      android:paddingLeft="32dp"
+                      android:textColor="@color/blank"
+                      android:textSize="14sp"
+                      android:hint="请输入城市名称或拼音"/>
+
+            <ImageView android:id="@+id/ivDeleteText"
+                       android:layout_width="18dp"
+                       android:layout_height="18dp"
+                       android:layout_alignParentRight="true"
+                       android:layout_alignParentTop="true"
+                       android:scaleType="fitCenter"
+                       android:src="@drawable/reset"
+                       android:layout_marginRight="17dp"
+                       android:layout_marginTop="4dp"
+                       android:visibility="invisible"
+                    />
+
+        </RelativeLayout>
     </RelativeLayout>
-    <ListView android:layout_width="match_parent" android:layout_height="match_parent" android:id="@+id/list_view">
-
+    <View
+            android:layout_height="1dip"
+            android:layout_width="match_parent"
+            android:background="#ccc"
+            />
+    <ListView android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:id="@+id/list_view"
+              android:background="@color/white_gray"
+            >
     </ListView>
-
 </LinearLayout>

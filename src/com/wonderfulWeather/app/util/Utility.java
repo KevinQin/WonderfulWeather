@@ -9,9 +9,7 @@ import android.util.Log;
 import android.view.WindowManager;
 import com.wonderfulWeather.app.R;
 import com.wonderfulWeather.app.WeatherApplication;
-import com.wonderfulWeather.app.model.City;
 import com.wonderfulWeather.app.model.County;
-import com.wonderfulWeather.app.model.Province;
 import com.wonderfulWeather.app.model.WeatherDB;
 import org.json.JSONObject;
 
@@ -52,57 +50,6 @@ public class Utility {
         return resId;
     }
 
-    /**
-     * 解析及处理服务器返回的省级数据
-     * */
-    public synchronized static boolean handlerProvinceResponse(WeatherDB weatherDB,String response)
-    {
-        if(!TextUtils.isEmpty(response))
-        {
-            String[] allProvinces=response.split(",");
-            if( allProvinces.length>0)
-            {
-                for(String p:allProvinces)
-                {
-                    String [] array=p.split("\\|");
-                    Province province=new Province();
-                    province.setProvinceName(array[1]);
-                    province.setProvinceCode(array[0]);
-                    weatherDB.saveProvince(province);
-                }
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 解析及处理城市信息
-     * */
-    public synchronized static boolean handlerCityResponse(WeatherDB weatherDB, String response,int provinceId)
-    {
-        if(!TextUtils.isEmpty(response))
-        {
-            String [] allCities=response.split(",");
-            if( allCities.length>0)
-            {
-                for(String c:allCities)
-                {
-                    String [] array=c.split("\\|");
-                    City city=new City();
-
-                    city.setCityName(array[1]);
-                    city.setCityCode(array[0]);
-                    city.setProvinceId(provinceId);
-
-                    weatherDB.saveCity(city);
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-
     /*
     * 分析处理县区数据
     * */
@@ -117,10 +64,14 @@ public class Utility {
                 {
                     String[] array=c.split("\\|");
                     County county=new County();
-                    county.setCountyName(array[1]);
-                    county.setCountyCode(array[0]);
-                    county.setCityId(cityId);
-
+                    county.setCode(array[0]);
+                    county.setCounty(array[1]);
+                    county.setCountyEn(array[2]);
+                    county.setCity(array[3]);
+                    county.setCityEn(array[4]);
+                    county.setProvince(array[5]);
+                    county.setProvinceEn(array[6]);
+                    county.setHot(false);
                     weatherDB.saveCounty(county);
                 }
                 return true;
@@ -130,7 +81,9 @@ public class Utility {
         return false;
     }
 
-
+    /**
+     * 解析服务器返回的JSON数据，并将解析出来的数据存储到本地
+     * */
     public  static boolean handleWeatherMoreResponse(Context context,String response)
     {
         try
@@ -140,7 +93,7 @@ public class Utility {
             JSONObject jsonObject=new JSONObject(response);
             JSONObject weatherInfo=jsonObject.getJSONObject("weatherinfo");
             String cityid=weatherInfo.getString("cityid");
-            dict.put("cityen_"+cityid,weatherInfo.getString("city_en"));
+            dict.put("city_en_"+cityid,weatherInfo.getString("city_en"));
             dict.put("date",weatherInfo.getString("date"));
             dict.put("date_y",weatherInfo.getString("date_y"));
             dict.put("week",weatherInfo.getString("week"));
@@ -154,7 +107,6 @@ public class Utility {
             dict.put("weather_4",weatherInfo.getString("weather4"));
             dict.put("weather_5",weatherInfo.getString("weather5"));
             dict.put("weather_6",weatherInfo.getString("weather6"));
-
             dict.put("img_3",weatherInfo.getString("img3"));
             dict.put("img_4",weatherInfo.getString("img4"));
             dict.put("img_5",weatherInfo.getString("img5"));
@@ -184,29 +136,39 @@ public class Utility {
     /**
      * 解析服务器返回的JSON数据，并将解析出来的数据存储到本地
      * */
-    public static void handleWeatherResponse(Context context,String response)
+    public static boolean handleWeatherResponse(Context context,String response)
     {
         try
         {
             JSONObject jsonObject=new JSONObject(response);
+            HashMap<String,String> dict=new HashMap<String,String>();
             JSONObject weatherInfo=jsonObject.getJSONObject("weatherinfo");
-            String cityName=weatherInfo.getString("city");
-            String weatherCode=weatherInfo.getString("cityid");
-            String temp1=weatherInfo.getString("temp1");
-            String temp2=weatherInfo.getString("temp2");
-            String temp=weatherInfo.getString("temp");
-            String wind=weatherInfo.getString("WD")+" "+weatherInfo.getString("WS");
-            String pm25=" 湿度："+weatherInfo.getString("SD");//weatherInfo.getString("pm25");
-            String weatherDesp=weatherInfo.getString("weather");
-            String publishTime=weatherInfo.getString("time")+":00";
-            saveWeatherInfo(context,cityName,weatherCode,temp1,temp2,temp,weatherDesp,publishTime,wind,pm25);
+            SimpleDateFormat sdf=new SimpleDateFormat("yyyy-M-d", Locale.CHINA);
+            dict.put("city_selected","true");
+            dict.put("city_name",weatherInfo.getString("city"));
+            dict.put("weather_code", weatherInfo.getString("cityid"));
+            dict.put("temp1",weatherInfo.getString("temp1"));
+            dict.put("temp2",weatherInfo.getString("temp2"));
+            dict.put("temp",weatherInfo.getString("temp"));
+            dict.put("wind",weatherInfo.getString("WD")+" "+weatherInfo.getString("WS"));
+            dict.put("pm25"," 湿度："+weatherInfo.getString("SD"));
+            dict.put("weather_desp",weatherInfo.getString("weather"));
+            dict.put("publish_time",weatherInfo.getString("time")+":00");
+            dict.put("current_date",sdf.format(new Date()));
+            SaveWeatherMapInfo(context, dict);
+            return true;
         }
         catch (Exception e)
         {
             e.printStackTrace();
+            return false;
         }
     }
 
+    /**
+     * 将服务器返回的天气信息存储到SharedPreferences文件中
+     *
+     * */
     public static void SaveWeatherMapInfo(Context context,HashMap<String,String> map)
     {
         SharedPreferences.Editor editor= PreferenceManager.getDefaultSharedPreferences(context).edit();
@@ -217,30 +179,6 @@ public class Utility {
             String value= map.get(key);
             editor.putString(key,value);
         }
-        editor.commit();
-    }
-
-    /**
-     * 将服务器返回的天气信息存储到SharedPreferences文件中
-     *
-     * */
-    public static  void saveWeatherInfo(Context context,String cityName,String weatherCode,
-                                        String temp1,String temp2, String realtemp,String weatherDesp,String publishTime,
-                                        String wind,String pm25)
-    {
-        SimpleDateFormat sdf=new SimpleDateFormat("yyyy-M-d", Locale.CHINA);
-        SharedPreferences.Editor editor= PreferenceManager.getDefaultSharedPreferences(context).edit();
-        editor.putBoolean("city_selected",true);
-        editor.putString("city_name",cityName);
-        editor.putString("weather_code",weatherCode);
-        editor.putString("temp1",temp1);
-        editor.putString("temp2",temp2);
-        editor.putString("temp",realtemp);
-        editor.putString("wind",wind);
-        editor.putString("pm25",pm25);
-        editor.putString("weather_desp",weatherDesp);
-        editor.putString("publish_time",publishTime);
-        editor.putString("current_date",sdf.format(new Date()));
         editor.commit();
     }
 
@@ -275,5 +213,17 @@ public class Utility {
             return dateStr;
         }
 
+    }
+
+    public static boolean IsCurrentLocation( County c)
+    {
+        try {
+            return c.getCode().equals(WeatherApplication.getCurrentCounty().getCode());
+        }
+        catch (Exception ex)
+        {
+            LogUtil.d("is Location,can't to get location information",ex.toString());
+            return  false;
+        }
     }
 }

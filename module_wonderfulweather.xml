@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="module_wonderfulweather" default="compile.module.wonderfulweather">
+  <dirname property="module.wonderfulweather.basedir" file="${ant.file.module_wonderfulweather}"/>
+  
+  <property name="module.jdk.home.wonderfulweather" value="${project.jdk.home}"/>
+  <property name="module.jdk.bin.wonderfulweather" value="${project.jdk.bin}"/>
+  <property name="module.jdk.classpath.wonderfulweather" value="${project.jdk.classpath}"/>
+  
+  <property name="compiler.args.wonderfulweather" value="-encoding UTF-8 -source 1.6 ${compiler.args}"/>
+  
+  <property name="wonderfulweather.output.dir" value="${module.wonderfulweather.basedir}/out/production/WonderfulWeather"/>
+  <property name="wonderfulweather.testoutput.dir" value="${module.wonderfulweather.basedir}/out/test/WonderfulWeather"/>
+  
+  <path id="wonderfulweather.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="wonderfulweather.module.production.classpath">
+    <path refid="${module.jdk.classpath.wonderfulweather}"/>
+    <path refid="library.android-support-v4.classpath"/>
+    <path refid="library.baidulbs_android.classpath"/>
+  </path>
+  
+  <path id="wonderfulweather.runtime.production.module.classpath">
+    <pathelement location="${wonderfulweather.output.dir}"/>
+    <path refid="library.android-support-v4.classpath"/>
+    <path refid="library.baidulbs_android.classpath"/>
+  </path>
+  
+  <path id="wonderfulweather.module.classpath">
+    <path refid="${module.jdk.classpath.wonderfulweather}"/>
+    <pathelement location="${wonderfulweather.output.dir}"/>
+    <path refid="library.android-support-v4.classpath"/>
+    <path refid="library.baidulbs_android.classpath"/>
+  </path>
+  
+  <path id="wonderfulweather.runtime.module.classpath">
+    <pathelement location="${wonderfulweather.testoutput.dir}"/>
+    <pathelement location="${wonderfulweather.output.dir}"/>
+    <path refid="library.android-support-v4.classpath"/>
+    <path refid="library.baidulbs_android.classpath"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.wonderfulweather">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.wonderfulweather">
+    <patternset refid="excluded.from.module.wonderfulweather"/>
+  </patternset>
+  
+  <path id="wonderfulweather.module.sourcepath">
+    <dirset dir="${module.wonderfulweather.basedir}">
+      <include name="src"/>
+      <include name="gen"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.wonderfulweather" depends="compile.module.wonderfulweather.production,compile.module.wonderfulweather.tests" description="Compile module WonderfulWeather"/>
+  
+  <target name="compile.module.wonderfulweather.production" depends="register.custom.compilers" description="Compile module WonderfulWeather; production classes">
+    <mkdir dir="${wonderfulweather.output.dir}"/>
+    <javac2 destdir="${wonderfulweather.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.wonderfulweather}/javac">
+      <compilerarg line="${compiler.args.wonderfulweather}"/>
+      <bootclasspath refid="wonderfulweather.module.bootclasspath"/>
+      <classpath refid="wonderfulweather.module.production.classpath"/>
+      <src refid="wonderfulweather.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.wonderfulweather"/>
+    </javac2>
+    
+    <copy todir="${wonderfulweather.output.dir}">
+      <fileset dir="${module.wonderfulweather.basedir}/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+      <fileset dir="${module.wonderfulweather.basedir}/gen">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="compile.module.wonderfulweather.tests" depends="register.custom.compilers,compile.module.wonderfulweather.production" description="compile module WonderfulWeather; test classes" unless="skip.tests"/>
+  
+  <target name="clean.module.wonderfulweather" description="cleanup module">
+    <delete dir="${wonderfulweather.output.dir}"/>
+    <delete dir="${wonderfulweather.testoutput.dir}"/>
+  </target>
+</project>
