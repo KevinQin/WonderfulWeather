@@ -182,19 +182,51 @@ public class Utility {
         editor.commit();
     }
 
-
-    public static int getScreenWidthForPx()
+    public static String formatDateForWeek(String dateStr,int addDay)
     {
-        DisplayMetrics metric = new DisplayMetrics();
-        WindowManager wm = (WindowManager) WeatherApplication.getContext().getSystemService(Context.WINDOW_SERVICE);
-        wm.getDefaultDisplay().getMetrics(metric);
-        int width = metric.widthPixels;     // 屏幕宽度（像素）
-        int height = metric.heightPixels;   // 屏幕高度（像素）
-        float density = metric.density;      // 屏幕密度（0.75 / 1.0 / 1.5）
-        int densityDpi = metric.densityDpi;  // 屏幕密度DPI（120 / 160 / 240）
-        Log.d("tag","width-px="+width+",height-px="+height+",density="+density+",densityDpi="+densityDpi);
-        return  width; //(int)(width/density);
+        try {
+            SimpleDateFormat df = new SimpleDateFormat("yyyy年MM月dd日");
+            //SimpleDateFormat dd=new SimpleDateFormat("yyyy-MM-dd EE hh:mm:ss");
+            //SimpleDateFormat mf = new SimpleDateFormat("MM.dd");
+            java.util.Calendar calstart = java.util.Calendar.getInstance();
+            calstart.setTime(df.parse(dateStr));
+            calstart.add(java.util.Calendar.DAY_OF_WEEK, addDay);
+            int n=calstart.get(Calendar.DAY_OF_WEEK);
+            String result="";
+            switch (n)
+            {
+                case 1:
+                    result="星期日";
+                    break;
+                case 2:
+                    result="星期一";
+                    break;
+                case 3:
+                    result="星期二";
+                    break;
+                case 4:
+                    result="星期三";
+                    break;
+                case 5:
+                    result="星期四";
+                    break;
+                case 6:
+                    result="星期五";
+                    break;
+                case 7:
+                    result="星期六";
+                    break;
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            ex.printStackTrace();
+            return dateStr;
+        }
     }
+
+
 
     public static String formatDateForWeather(String dateStr,int addDay)
     {
@@ -212,7 +244,6 @@ public class Utility {
             ex.printStackTrace();
             return dateStr;
         }
-
     }
 
     public static boolean IsCurrentLocation( County c)

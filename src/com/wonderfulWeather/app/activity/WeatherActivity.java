@@ -1,7 +1,6 @@
 package com.wonderfulWeather.app.activity;
 
 import android.app.Activity;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -58,7 +57,12 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
 
     private Button switchCity;
 
+    private Button refreshInfo;
+
     private boolean isNeedQuery=false;
+
+    DisplayUtil.Size screen_dip;
+    float screen_Density;
 
     Handler handler=new Handler(){
         @Override
@@ -88,7 +92,11 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
         pm25Text=(TextView)findViewById(R.id.pm25);
         currtemp = (TextView)findViewById(R.id.currtemp);
         switchCity=(Button)findViewById(R.id.switch_city);
+        refreshInfo=(Button)findViewById(R.id.btnRefresh);
         String countyCode=getIntent().getStringExtra("county_code");
+
+        screen_dip=DisplayUtil.getScreenSizeForDpi();
+        screen_Density=DisplayUtil.getScreenDensity();
 
         if(!TextUtils.isEmpty(countyCode))
         {
@@ -121,6 +129,8 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
             }
         }
         switchCity.setOnClickListener(this);
+        refreshInfo.setOnClickListener(this);
+
     }
 
 
@@ -211,6 +221,13 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
 
     private void showWeatherMoreDay()
     {
+        LogUtil.d("init","screenWidth_dip="+screen_dip.getWidth()+",screen_Density="+screen_Density);
+        int img_margin=(int)((screen_dip.getWidth()/5-40)*screen_Density)/2;
+        int s_h=screen_dip.getHeight();
+        int list_height=(int)(s_h-70)/3;
+        int m_h=19;
+        if(screen_Density!=3){m_h= (int)(19+(3/(3-screen_Density))*2.5+1);}
+        int vline_height=(int)((list_height-40-12-m_h)*screen_Density-3*DisplayUtil.sp2px(14,DisplayUtil.getScreenScaledDensity()));  //40:图标  12 内边距 3行14sp的字
 
         SharedPreferences prefs=PreferenceManager.getDefaultSharedPreferences(this);
         String cityCode=prefs.getString("weather_code","");
@@ -218,7 +235,6 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
             findViewById(R.id.weather_more_info).setVisibility(View.INVISIBLE);
             return;
         }
-
 
         LinearLayout list_layout = (LinearLayout) findViewById(R.id.weather_more_info);
         list_layout.removeAllViews();
@@ -255,13 +271,23 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
             LinearLayout list_item=(LinearLayout)inflater.inflate(R.layout.day_weather, null);
             ImageView img=(ImageView)list_item.findViewById(R.id.weather_small_day_icon);
             img.setImageResource(Utility.getDrawableResourceId(imageKey));
-            ((TextView)list_item.findViewById(R.id.weather_small_day_temp1)).setText(temp2+"℃");
+            ((TextView) list_item.findViewById(R.id.weather_small_day_temp1)).setText(temp2 + "℃");
             ((TextView)list_item.findViewById(R.id.weather_small_day_temp2)).setText(temp1+"℃");
-
             TextView days=(TextView)list_item.findViewById(R.id.weather_small_day_text);
+            days.setText(Utility.formatDateForWeek(prefs.getString("date_y",""),i-1));
+            if(screen_dip.getWidth()!=320) {
+                LinearLayout.LayoutParams pp = (LinearLayout.LayoutParams)img.getLayoutParams();
+                pp.setMargins(img_margin,0,img_margin,0);
+                img.setLayoutParams(pp);
+            }
+            //调整竖线的长度
+            ImageView vline=(ImageView)list_item.findViewById(R.id.weather_small_day_vline);
+            ViewGroup.LayoutParams lp=vline.getLayoutParams();
+            lp.height=vline_height;
+            vline.setLayoutParams(lp);
 
-            days.setText(Utility.formatDateForWeather(prefs.getString("date_y",""),i-1));
             list_layout.addView(list_item);
+
             if(i<6) {
                 LinearLayout view = new LinearLayout(this);
                 RelativeLayout.LayoutParams para = new RelativeLayout.LayoutParams(1, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -320,7 +346,7 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
     public void onClick(View v) {
         switch (v.getId())
         {
-           case 10001:
+           case R.id.btnRefresh:
                 publishText.setText("同步中...");
                 SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
                 String weatherCode=prefs.getString("weather_code","");
@@ -328,6 +354,26 @@ public class WeatherActivity extends Activity implements View.OnClickListener {
                 {
                     queryWeatherInfo(weatherCode);
                 }
+                /*
+                int allHeight=weatherMorLayout.getHeight();
+                int listHeight=weatherMorLayout.getChildAt(0).getHeight();
+                int imageHeight=weatherMorLayout.getChildAt(0).findViewById(R.id.weather_small_day_icon).getHeight();
+                int temp1=weatherMorLayout.getChildAt(0).findViewById(R.id.weather_small_day_temp1).getHeight();
+                int temp2=weatherMorLayout.getChildAt(0).findViewById(R.id.weather_small_day_temp2).getHeight();
+                int date=weatherMorLayout.getChildAt(0).findViewById(R.id.weather_small_day_text).getHeight();
+                int vline=weatherMorLayout.getChildAt(0).findViewById(R.id.weather_small_day_vline).getHeight();
+               ((TextView)findViewById(R.id.testInfo)).setText("boxheight="+allHeight+
+                "\nlist hegiht="+listHeight+
+                               "\n imageH="+imageHeight+",t1="+temp1+",t2="+temp2+",d="+date+
+                               "\n sub Sum="+(imageHeight+temp1+temp2+date)+
+                       "\n v line="+vline+
+                               "\nall sum="+(vline+imageHeight+temp1+temp2+date)
+               );
+
+               int allw=weatherMorLayout.getWidth();
+               int listW=weatherMorLayout.getChildAt(0).getWidth();
+               ((TextView)findViewById(R.id.testInfo)).setVisibility(View.VISIBLE).setText("boxw="+allw+",listw="+listW);
+               */
                 break;
             case R.id.switch_city:
                 Intent intent=new Intent(this,ChooseAreaActivity.class);
